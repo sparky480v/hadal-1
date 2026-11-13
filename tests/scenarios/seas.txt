@@ -1,0 +1,105 @@
+master 3000
+wait 26000
+spin PRESET 1
+wait 500
+shot sea0.png
+wait 22000
+shot sea0b.png
+spin PRESET 1
+wait 500
+shot sea1.png
+wait 22000
+shot sea1b.png
+spin PRESET 1
+wait 500
+shot sea2.png
+wait 22000
+shot sea2b.png
+spin PRESET 1
+wait 500
+shot sea3.png
+wait 22000
+shot sea3b.png
+spin PRESET 1
+wait 500
+shot sea4.png
+wait 22000
+shot sea4b.png
+spin PRESET 1
+wait 500
+shot sea5.png
+wait 22000
+shot sea5b.png
+spin PRESET 1
+wait 500
+shot sea6.png
+wait 22000
+shot sea6b.png
+spin PRESET 1
+wait 500
+shot sea7.png
+wait 22000
+shot sea7b.png
+spin PRESET 1
+wait 500
+shot sea8.png
+wait 22000
+shot sea8b.png
+spin PRESET 1
+wait 500
+shot sea9.png
+wait 22000
+shot sea9b.png
+spin PRESET 1
+wait 500
+shot sea10.png
+wait 22000
+shot sea10b.png
+spin PRESET 1
+wait 500
+shot sea11.png
+wait 22000
+shot sea11b.png
+spin PRESET 1
+wait 500
+shot sea12.png
+wait 22000
+shot sea12b.png
+spin PRESET 1
+wait 500
+shot sea13.png
+wait 22000
+shot sea13b.png
+spin PRESET 1
+wait 500
+shot sea14.png
+wait 22000
+shot sea14b.png
+press FX
+wait 200
+shot fxa.png
+key 16 down
+wait 30
+key 16 up
+wait 200
+shot fxa2.png
+spin SELECT 1
+wait 200
+shot fxb.png
+release FX
+wait 100
+press GLO
+wait 200
+shot gloa.png
+release GLO
+spin SELECT 1
+wait 40
+spin SELECT 1
+wait 40
+spin SELECT 1
+wait 200
+shot tide.png
+wait 2500
+tap SAVE
+wait 300
+shot end.png

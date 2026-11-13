@@ -1,0 +1,17 @@
+# HADAL-1's build settings (fm1-base's tools/build.py: ./build.sh)
+name = "HADAL"
+id_prefix = "FM-1_96"           # package identity: dev FM-1_9600, releases FM-1_96XXYYZZ
+usb_manufacturer = "HADAL-1"
+usb_product = "HADAL-1 FM-1"
+ble = false                     # HADAL-1 never uses the radio
+usb_audio_in = true             # the sea recordable over USB
+usb_audio_out = false
+cpu2 = true                     # the second core: bells and creatures
+cpu2_fallback = true            # if it fails, one core until power-off, never a restart
+words = "words.tsv"
+include = ["dsp"]
+o2 = ["dsp/hadal.c", "dsp/vis.c"]
+tagline = "Fifteen dark worlds that never repeat"
+repo = ""                     # set to the public repository once there is one
+licence = "MPL-2.0"
+credits = "Built on fm1-base and felucca-bsp, from Felucca by Leo Kuroshita (Hugelton Instruments), and on the design of AMB-1 by Charles Vestal."

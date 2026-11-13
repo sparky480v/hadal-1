@@ -1,0 +1,45 @@
+wait 800
+shot t_title.png
+wait 4500
+wait 3000
+shot t_plain.png
+press FX
+wait 100
+key 5 down
+wait 300
+shot t_fxhold.png
+wait 700
+shot t_kept.png
+key 5 up
+wait 100
+release FX
+wait 500
+shot t_after.png
+tap FX
+wait 300
+shot t_menu.png
+tap FX
+wait 300
+spin K1 40
+spin K3 40
+wait 200
+tap SAVE
+wait 300
+spin K2 12
+wait 300
+shot t_keep.png
+tap HOME
+wait 300
+spin K1 -60
+spin K3 -60
+wait 200
+tap SAVE
+wait 300
+spin K3 12
+wait 400
+shot t_load.png
+tap HOME
+wait 300
+spin K1 1
+wait 200
+shot t_page.png

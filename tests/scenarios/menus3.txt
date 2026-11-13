@@ -1,0 +1,30 @@
+wait 7000
+tap FX
+wait 300
+shot a.png
+key 11 down
+wait 900
+shot b.png
+wait 1100
+key 11 up
+wait 1500
+shot c.png
+spin SELECT 1
+wait 300
+shot d.png
+tap FX
+wait 300
+tap GLO
+wait 200
+shot e.png
+spin SELECT 7
+wait 200
+shot f.png
+tap GLO
+wait 300
+tap SAVE
+wait 300
+shot g.png
+tap HOME
+wait 300
+shot h.png

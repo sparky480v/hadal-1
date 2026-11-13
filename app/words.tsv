@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: MPL-2.0
+# HADAL-1's words for a screen reader: the text on the screen <TAB> what to say.
+# url: https://hadal.example/words/
+HADAL	hadal
+NIFLHEIM	nifl heim
+MICTLAN	mikt lan
