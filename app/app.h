@@ -19,6 +19,8 @@
 enum { OBJ_PROJ, OBJ_PANEL, OBJ_NOBJ };
 #define FM1B_UAC_DEEP 1                  /* the render can take over 40 % of its time: USB needs the deeper ring, or it crackles */
 #define APP_AFTER_TAP
+#define APP_OVERLOAD                     /* a block over 90 % of its time: the engine lightens at once */
+void app_overload(void);
 void app_after_tap(int32_t *lr, uint32_t n);
 #define APP_STORE_MAP {0xFC000u, 0xDC000u}
 

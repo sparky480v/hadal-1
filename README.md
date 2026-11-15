@@ -54,7 +54,7 @@ row sings voices.
 
 ### FX menu
 
-Tap a key to play an effect once. Hold a key for half a second to keep it playing; hold it again to stop it. Up to 4
+Tap a key to play an effect once. Hold a key for half a second to keep it playing; hold it again to stop it. Up to 3
 can be kept on. Turn SELECT for the next bank. Hold FX and press keys to play effects without the menu. Effects also
 play by themselves (LEVELS, EFFECTS sets how loud; SHAPE: MOVEMENT, FX RATE how often), and their name shows small at
 the top left.

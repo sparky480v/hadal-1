@@ -5,7 +5,22 @@
 
 #define PROJ_MAGIC 0x384C4448u           /* "HDL8" */
 #define GLOBAL_MAGIC 0x32474C47u          /* "GLG2" */
-#define MAX_HELD 4
+#define MAX_HELD 3                       /* 1.0.1: four heavy ones kept at once could fill the processor */
+static void held_send(const uint32_t *m)  /* a world saved with more kept on than allowed now: only the first ones */
+{
+    uint32_t c[EN_MASK];
+    int i, n = 0;
+    for (i = 0; i < EN_MASK; i++) {
+        uint32_t w = m[i], k = 0;
+        for (; w; w &= w - 1u)
+            if (n < MAX_HELD) {
+                k |= w & (0u - w);
+                n++;
+            }
+        c[i] = k;
+    }
+    en_held_all(c);
+}
 #define KEEP_MS 450u      /* an effect key held this long: kept on, or let go (a tap just plays it once) */
 #define FX_TAP_MS 600u
 #define FX_SHOW_MS 4600u
@@ -13,7 +28,7 @@
 #ifdef APP_VERSION
 #define BETA_LABEL "VERSION " APP_VERSION   /* on the power-on screen: which build is on the FM-1 */
 #else
-#define BETA_LABEL "VERSION 1.0"
+#define BETA_LABEL "VERSION 1.0.1"
 #endif
 #define GUIDE_SEEN 64u    /* gset.rsv[2]: the first-time guide has been read */
 #define PANIC_QUIET 128u  /* gset.rsv[2]: PANIC SOUND off */
@@ -169,7 +184,7 @@ static void apply(void)
     if (proj.rsv[2])
         en_shape(S_MOSEED, proj.rsv[2]);
     vis_set_mode(proj.screen);
-    en_held_all(proj.held);
+    held_send(proj.held);
     if (proj.keys[0] == 1)
         proj.keys[0] = 2;
     en_keys(proj.keys[0], proj.keys[1], proj.keys[4], proj.keys[2], proj.keys[3]);
@@ -390,6 +405,7 @@ void app_init(void)
     ui.playing = 1;
 }
 void app_render(int32_t *lr, uint32_t n, uint32_t gain_q12) { en_render(lr, n, gain_q12); }
+void app_overload(void) { en_overload(); }
 void app_after_tap(int32_t *lr, uint32_t n) { en_after_tap(lr, n); }
 void app_panic(void) { en_panic(); }
 
@@ -582,7 +598,7 @@ static void load_fossil(const en_fossil_t *f)
     en_shape(S_MOVOICE, mo_val(2));
     if (proj.rsv[2])
         en_shape(S_MOSEED, proj.rsv[2]);
-    en_held_all(f->held);
+    held_send(f->held);
     proj.keys[5] = f->rsv3[0] <= 6 ? f->rsv3[0] : 0;   /* the SCENE knob it was saved with */
     en_scene((int)proj.keys[5] - 1);
 }
@@ -1120,7 +1136,7 @@ static void input(void)
             en_hold(i, 0);
             fx_say("STOPPED", en_sfx_name(i));
         } else if (held_count() >= MAX_HELD)
-            fx_say("4 KEPT ON IS THE MOST", helping() ? "HOLD ONE OF THEM TO STOP IT" : "");
+            fx_say("3 KEPT ON IS THE MOST", helping() ? "HOLD ONE OF THEM TO STOP IT" : "");
         else if (held_count() + latched_n() >= 6)
             fx_say("6 AT ONCE IS THE MOST", helping() ? "LATCHED VOICES + KEPT EFFECTS" : "");
         else {

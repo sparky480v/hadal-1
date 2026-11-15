@@ -91,6 +91,7 @@ void en_duck(int on);                 /* a 10 ms fade to silence and back: the f
 void en_usb_split(int on);            /* on: en_render leaves the full-range mix for USB, en_after_tap swaps in what the speaker should get */
 void en_after_tap(int32_t *lr, uint32_t n);
 void en_usb_tone(int phone);           /* 1: the recording gets the speaker's shaping too, for phones and small speakers */
+void en_overload(void);              /* the audio interrupt: a block ran over 90 % of its time */
 void en_cores(int two);              /* app_init: the second core takes jobs */
 uint32_t en_rand(void);              /* main loop: its own stream, seeded with the engine */
 

@@ -2,7 +2,7 @@
 # HADAL-1's browser installer, from a release build (./build.sh --release 0.6), served on this computer.
 set -e
 cd "$(dirname "$0")"
-V="${1:-1.0}"
+V="${1:-1.0.1}"
 mkdir -p app/build/emu app/site
 [ -f app/build/emu/app.wasm ] || : > app/build/emu/app.wasm
 [ -f app/site/landing.md ] || printf '# HADAL-1\n\nDark worlds that never repeat.\n\n[Install](install/)\n' > app/site/landing.md

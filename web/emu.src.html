@@ -43,7 +43,7 @@ input[type=range]{width:100%;accent-color:var(--glow);margin:0;height:26px}
 @media(max-width:800px){.dev{grid-template-columns:minmax(0,1fr)}.help{grid-template-columns:minmax(0,1fr)}}
 </style>
 <main>
-<header><h1>HADAL<i>-1</i></h1><p>Version 1.0. The real firmware code, running in your browser.</p></header>
+<header><h1>HADAL<i>-1</i></h1><p>Version 1.0.1. The real firmware code, running in your browser.</p></header>
 <div class="dev">
  <div class="sw"><canvas id="lcd" width="240" height="240" aria-label="The FM-1 screen"></canvas><button id="go">POWER ON · SOUND</button></div>
  <div class="ctl">
@@ -58,7 +58,7 @@ input[type=range]{width:100%;accent-color:var(--glow);margin:0;height:26px}
 <div class="help">
  <div><b>Change the world</b>Turn PRESETS for the fifteen worlds. Turn SELECT to move through seven pages of knobs; each knob explains itself as you turn it. Press GLO for Global: turn SELECT to choose a setting and Knob 1 to change it.</div>
  <div><b>Force events</b>EDIT is an omen, SEQ picks a random world and REC holds. ARP is an upheaval. Hold LFO for the swell and let go to collapse it. A tap of FX opens the effects. On the real FM-1, hold FX and press keys to play effects while the picture stays on screen; here, FX LOCK does the holding.</div>
- <div><b>Keep what you like</b>SAVE opens the save menu: Knob 1 picks a fossil, then twist Knob 2 to keep, 3 to load, or 4 to erase. Press SAVE again to save settings.</div>
+ <div><b>Keep what you like</b>SAVE opens the save menu: Knob 1 picks one of four slots, and SAVE again saves there. Tap a lit key (F, G, A or B) to load a slot; Knob 4, three clicks right, erases it. HOME leaves without saving.</div>
 </div>
 </main>
 <script id="wasm" type="text/plain">/*{{WASM}}*/</script>

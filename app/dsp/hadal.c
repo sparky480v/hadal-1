@@ -317,6 +317,21 @@ static int busy_n, spk_on;               /* latched voices + kept effects: how f
 static const float SPK_LIFT[EN_NBELL] = {1.00f, 1.28f, 1.30f, 1.11f, 1.85f, 2.00f, 1.25f, 1.24f, 1.43f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.00f, 1.18f, 1.35f, 1.00f, 1.00f, 1.34f, 1.00f, 1.21f, 1.06f, 1.11f, 1.00f, 1.00f, 1.00f, 1.00f, 1.39f, 1.10f, 1.01f, 1.03f, 1.00f, 1.00f, 1.09f, 1.00f, 1.00f, 1.00f, 1.02f, 1.00f, 1.00f};
 static int scene, scene_lock = -1, pd_semi[3] = {0, 3, 7}, stress;
 static float wduck = 1.0f, wduck2 = 1.0f;   /* under stress the world's choir steps back, its back rows to silence */
+/* the watchman: the render times itself. Too close to its time, and the world lightens before the sound can break */
+static float cpu_e, hot_t, deep_t, bal_t;
+static int hot, deep, kv_c2 = 4;         /* kv_c2: how many of the keys' voices the second core sings; core 1 the rest */
+static uint32_t wait_tk, span_tk;
+/* the deadline: past it, the voices still waiting this block are skipped (they pause for 6 ms) instead of the whole
+ * sound tearing apart, the FM-1's knobs and screen frozen, while the watchman lightens the world */
+static volatile uint32_t r_t0, r_dl;
+static volatile uint8_t r_late;
+static inline int late(void)
+{
+    if ((uint32_t)(plat_ticks24() - r_t0) <= r_dl)
+        return 0;
+    r_late = 1;
+    return 1;
+}
 static const float SCENE[6][6] = {       /* drone, pads, choir, bells, effects, brightness */
     {.7f, .35f, .25f, 1.6f, .6f, 1.0f},  /* bells alone */
     {.8f, 1.0f, 1.8f, .7f, .5f, 1.35f},  /* the choir rises */
@@ -771,6 +786,7 @@ static float bm[2][BLK];                                                 /* one 
 static float pr[2];
 static int two_cores;
 void en_cores(int two) { two_cores = two; }
+void en_overload(void) { if (cpu_e < .95f) cpu_e = .95f; }   /* the platform: a block took over 90 % of its time */
 
 static void bells_render(uint32_t n, int v0, int v1, float *const *o, float *m)   /* bells v0..v1-1 into o */
 {
@@ -779,7 +795,7 @@ static void bells_render(uint32_t n, int v0, int v1, float *const *o, float *m) 
     uint32_t i;
     for (v = v0; v < v1; v++) {
         float pl, prr, a, live = 0.0f;
-        if (!bl[v].on)
+        if (!bl[v].on || late())
             continue;
         pl = (.5f - bl[v].pan * .5f) * .55f;
         prr = (.5f + bl[v].pan * .5f) * .55f;
@@ -917,6 +933,8 @@ static void fauna_render(uint32_t n)
     for (v = 0; v < EN_NFA; v++) {
         fauna_v *c = &fa[v];
         const sfx_t *R = c->r;
+        if (c->on && late())
+            continue;
         float pl, prr, tt, env, fgn, dt = 1.0f / EN_SR;
         if (!c->on)
             continue;
@@ -1196,11 +1214,14 @@ static void pads_render(uint32_t n)
     }
 }
 
-static void keyvox_render(uint32_t n);
+static void keyvox_render(uint32_t n, int v0, int v1, float *const *o);
 static void core2_job(uint32_t n)
 {
     pads_render(n);
-    keyvox_render(n);
+    {
+        float *const o[4] = {cL, cR, cT, cV};
+        keyvox_render(n, 0, kv_c2, o);
+    }
     {
         float *const o[4] = {cL, cR, cT, cV};
         bells_render(n, 2, NB, o, bm[1]);        /* six of the bells here, two on core 1 (it has the room) */
@@ -1332,33 +1353,33 @@ static const vx_t VX_CH[NCHOIR] = {
     {1, 2, 2, 0.00f, 0.00f, 0.00f, 0.18f, 1.00f},   /* LULLABY OF THE DEAD */
 };
 static const vx_t VX_KV[EN_NKVOX - 1] = {
-    {1, 0, 1, .12f, .55f, 0, .05f, 0.47f}, /* GYUTO MONKS: the undertone chant */
-    {1, 1, 1, 0, 0, 0, .05f, 0.48f},       /* PLAINCHANT */
-    {1, 2, 0, 0, 0, 0, .04f, 0.97f},       /* BULGARIAN DIRGE */
-    {1, 1, 0, 0, 0, 0, .08f, 0.91f},       /* REQUIEM CLUSTER */
-    {1, 2, 0, 0, 0, 0, .12f, 0.97f},       /* FALLEN ANGELS */
-    {1, 0, 2, .9f, .8f, 0, .25f, 0.68f},   /* DEMON GROWL */
-    {1, 0, 2, 0, .1f, 1.0f, .03f, 0.54f},  /* KHOOMEI WHISTLE */
-    {1, 2, 2, 0, 0, 0, .12f, 2.29f},       /* KEENING */
-    {1, 1, 3, 0, 0, 0, 1.0f, 1.88f},       /* WHISPERING DEAD */
-    {1, 2, 0, 0, 0, 0, .35f, .51f},       /* SHADOW SOPRANO: one dark angel, more breath than voice */
-    {1, 2, 0, 0, 0, 0, .06f, 1.00f},  /* SERAPHIM: open fifths, high */
-    {1, 1, 2, 0, .1f, 0, .08f, 1.00f},   /* DROWNED CHOIR: muffled, slow wobble */
-    {1, 1, 1, 0, 0, 0, .04f, 1.00f},     /* ORGANUM: chanted fifths */
-    {1, 1, 2, 0, 0, 0, .08f, 1.00f},     /* LAMENT: a minor chord, held */
-    {1, 2, 0, 0, 0, 0, .1f, 1.00f},      /* HALO: a major chord of light */
-    {1, 2, 0, 0, 0, .6f, .05f, 1.00f},   /* ICE MAIDENS: whistling sopranos */
-    {1, 0, 1, 0.70f, 0.00f, 0.00f, 0.30f, 1.00f},   /* DEATH RATTLE */
-    {1, 2, 0, 0.00f, 0.00f, 0.00f, 0.05f, 1.00f},   /* CHERUBIM */
-    {1, 1, 1, 0.00f, 0.10f, 0.00f, 0.05f, 1.00f},   /* DISTANT MASS */
-    {1, 2, 1, 0.50f, 0.00f, 0.00f, 0.40f, 1.00f},   /* CHOKING VOICES */
-    {1, 0, 0, 0.25f, 0.20f, 0.00f, 0.12f, 1.00f},   /* GRAVE DIGGERS */
-    {1, 1, 2, 0.00f, 0.00f, 0.00f, 0.20f, 1.00f},   /* WEEPING STATUES */
-    {1, 2, 2, 0.00f, 0.00f, 0.00f, 0.18f, 1.00f},   /* LULLABY OF THE DEAD */
-    {1, 1, 1, 0.00f, 0.00f, 0.00f, 0.10f, 1.00f},   /* BROKEN RECORD */
-    {1, 2, 2, 0.00f, 0.00f, 0.00f, 0.06f, 1.00f},   /* SOPRANO BELOW */
-    {1, 1, 0, 0.00f, 0.30f, 0.20f, 0.04f, 1.00f},   /* GOTHIC CHOIR */
-    {1, 0, 0, 0.00f, 0.00f, 0.00f, 0.15f, 1.00f},   /* ROBED ELDERS */
+    {1, 0, 1, .12f, .55f, 0, .05f, 0.77f}, /* GYUTO MONKS: the undertone chant */
+    {1, 1, 1, 0, 0, 0, .05f, 0.91f},       /* PLAINCHANT */
+    {1, 2, 0, 0, 0, 0, .04f, 2.25f},       /* BULGARIAN DIRGE */
+    {1, 1, 0, 0, 0, 0, .08f, 1.26f},       /* REQUIEM CLUSTER */
+    {1, 2, 0, 0, 0, 0, .12f, 1.47f},       /* FALLEN ANGELS */
+    {1, 0, 2, .9f, .8f, 0, .25f, 0.88f},   /* DEMON GROWL */
+    {1, 0, 2, 0, .1f, 1.0f, .03f, 0.66f},  /* KHOOMEI WHISTLE */
+    {1, 2, 2, 0, 0, 0, .12f, 5.19f},       /* KEENING */
+    {1, 1, 3, 0, 0, 0, 1.0f, 2.13f},       /* WHISPERING DEAD */
+    {1, 2, 0, 0, 0, 0, .35f, 1.75f},       /* SHADOW SOPRANO: one dark angel, more breath than voice */
+    {1, 2, 0, 0, 0, 0, .06f, 2.00f},  /* SERAPHIM: open fifths, high */
+    {1, 1, 2, 0, .1f, 0, .08f, 2.04f},   /* DROWNED CHOIR: muffled, slow wobble */
+    {1, 1, 1, 0, 0, 0, .04f, 1.23f},     /* ORGANUM: chanted fifths */
+    {1, 1, 2, 0, 0, 0, .08f, 1.43f},     /* LAMENT: a minor chord, held */
+    {1, 2, 0, 0, 0, 0, .1f, 1.35f},      /* HALO: a major chord of light */
+    {1, 2, 0, 0, 0, .6f, .05f, 1.45f},   /* ICE MAIDENS: whistling sopranos */
+    {1, 0, 1, 0.70f, 0.00f, 0.00f, 0.30f, 1.48f},   /* DEATH RATTLE */
+    {1, 2, 0, 0.00f, 0.00f, 0.00f, 0.05f, 2.11f},   /* CHERUBIM */
+    {1, 1, 1, 0.00f, 0.10f, 0.00f, 0.05f, 2.24f},   /* DISTANT MASS */
+    {1, 2, 1, 0.50f, 0.00f, 0.00f, 0.40f, 1.29f},   /* CHOKING VOICES */
+    {1, 0, 0, 0.25f, 0.20f, 0.00f, 0.12f, 1.72f},   /* GRAVE DIGGERS */
+    {1, 1, 2, 0.00f, 0.00f, 0.00f, 0.20f, 1.41f},   /* WEEPING STATUES */
+    {1, 2, 2, 0.00f, 0.00f, 0.00f, 0.18f, 3.67f},   /* LULLABY OF THE DEAD */
+    {1, 1, 1, 0.00f, 0.00f, 0.00f, 0.10f, 1.36f},   /* BROKEN RECORD */
+    {1, 2, 2, 0.00f, 0.00f, 0.00f, 0.06f, 2.32f},   /* SOPRANO BELOW */
+    {1, 1, 0, 0.00f, 0.30f, 0.20f, 0.04f, 1.70f},   /* GOTHIC CHOIR */
+    {1, 0, 0, 0.00f, 0.00f, 0.00f, 0.15f, 1.68f},   /* ROBED ELDERS */
 };
 static void vowel_step(choir_v *c, const vx_t *X, float dt)
 {
@@ -1566,7 +1587,7 @@ static void voice_render(choir_v *c, const choir_t *Y, float pan, float open0, u
     }
     c->amp0 = c->amp;
 }
-static void keyvox_render(uint32_t n);
+static void keyvox_render(uint32_t n, int v0, int v1, float *const *o);
 static void choir_render(uint32_t n)
 {
     float *const o[4] = {bL, bR, bT, bV};
@@ -1582,13 +1603,13 @@ static void choir_render(uint32_t n)
             voice_render(c, &CHOIRS[c->type], CH_PAN[v], open0, n, o);
     }
 }
-static void keyvox_render(uint32_t n)    /* the keys' voices: on the second core, beside the bells and effects */
+static void keyvox_render(uint32_t n, int v0, int v1, float *const *o)   /* the keys' voices v0..v1-1: on the second
+                                         * core beside the bells and effects, or some on core 1 when the second is full */
 {
-    float *const o[4] = {cL, cR, cT, cV};
     int v;
-    for (v = 0; v < NKV; v++) {
+    for (v = v0; v < v1; v++) {
         choir_v *c = &kv[v];
-        if (c->amp < 1e-5f && c->amp0 < 1e-5f)
+        if ((c->amp < 1e-5f && c->amp0 < 1e-5f) || late())
             continue;
         {
             const choir_t *Y = c->type < 0 ? &CHOIRS[ch[0].type] : &KVOX[c->type];
@@ -2281,7 +2302,7 @@ static void control(void)
     root_hz += (root_target() - root_hz) * (dt / (k_mode == 1 ? 6.0f : 9.0f));
     {
         int v;
-        float lv_k, lv_w, rel = dt / (.4f + (float)k_fade * .1f);
+        float lv_k, lv_w, rel = dt / (.4f + (float)k_fade * .1f) * (deep ? 4.0f : 1.0f);   /* deep: let-go voices go quickly */
         {
             float room = 1.0f;
             for (v = 0; v < EN_NFA; v++)
@@ -2294,7 +2315,7 @@ static void control(void)
             kv_room += (room - kv_room) * fm_minf(1.0f, dt / (room < kv_room ? .5f : 2.5f));
         }
         lv_k = (float)k_lv * .01f * 1.6f * kv_room;
-        lv_w = lv_k * .06f;   /* the world's choirs are made for far smaller amplitudes */
+        lv_w = lv_k * .860f;   /* the world's choirs are made for smaller amplitudes: measured to stand 3 dB over the world like the other voices */
         for (v = 0; v < NKV; v++) {
             choir_v *c = &kv[v];
             if (kv_gate[v])
@@ -2330,9 +2351,35 @@ static void control(void)
                 for (w2 = held[v2]; w2; w2 &= w2 - 1u)
                     nh++;
             busy_n = nv + nh;
-            stress = nv + nh >= (stress ? 5 : 6);   /* in at 6 (the most there can be), out at 4: no flapping */
+            {   /* a kept effect weighs half again what a voice does: four of the heavy ones can fill the processor */
+                int load2 = 2 * nv + 3 * nh;            /* twice the load: voices 1, kept effects 1.5 */
+                stress = load2 >= (stress ? 10 : 12);    /* in at 6 (four kept effects), out under 5: no flapping */
+            }
+            if (cpu_e > .78f)                /* the measured load: whatever the count says, the processor decides */
+                hot_t = 5.0f;
+            else if (cpu_e < .62f)
+                hot_t -= dt;
+            hot = hot_t > 0.0f;
+            stress |= hot;
+            if (hot && cpu_e > .85f)
+                deep_t += dt;                /* still too full with the world lightened: the second step */
+            else if (!hot)
+                deep_t = 0.0f;
+            deep = deep_t > .4f;
+            bal_t += dt;
+            if (bal_t > .25f) {              /* share the keys' voices between the cores by who is waiting on whom */
+                float w = span_tk ? (float)wait_tk / (float)span_tk : 0.0f;
+                bal_t = 0.0f;
+                if (!two_cores || !hot)
+                    kv_c2 = NKV;
+                else if (w > .12f && kv_c2 > 0)
+                    kv_c2--;                 /* core 1 sat waiting for the second: it takes a voice */
+                else if (w < .02f && kv_c2 < NKV)
+                    kv_c2++;
+                wait_tk = span_tk = 0;
+            }
         }
-        wduck += ((stress ? .15f : 1.0f) - wduck) * fm_minf(1.0f, dt / 1.5f);
+        wduck += ((deep ? 0.0f : stress ? .15f : 1.0f) - wduck) * fm_minf(1.0f, dt / 1.5f);   /* deep: the whole choir rests */
         wduck2 += ((stress ? 0.0f : 1.0f) - wduck2) * fm_minf(1.0f, dt / 1.0f);
         walk_left -= dt * evolve;
         if (walk_left <= 0.0f) {         /* the ground takes a step: home, or a note of the world's scale near it */
@@ -2435,11 +2482,18 @@ static void control(void)
             for (v2 = 0; v2 < EN_NFA; v2++)
                 if (fa[v2].on && fa[v2].kind == h)
                     on = 1;
+            if (deep) {                  /* full: kept effects take turns, no more than two sounding at once */
+                int n_on = 0;
+                for (v2 = 0; v2 < EN_NFA; v2++)
+                    n_on += fa[v2].on;
+                if (n_on >= 2)
+                    on = 1;
+            }
             if (!on) {
                 held_gap[h % EN_NFA] -= dt;
                 if (held_gap[h % EN_NFA] <= 0.0f) {
                     spawn_free(h);
-                    held_gap[h % EN_NFA] = .4f + fr() * 1.4f;
+                    held_gap[h % EN_NFA] = deep ? 2.5f + fr() * 2.0f : .4f + fr() * 1.4f;   /* deep: a longer breath */
                 }
             }
         }
@@ -2670,7 +2724,23 @@ static void commands(void)
                 cast[c.a >> 5] &= ~(1u << (c.a & 31));
             break;
         case C_CASTW: cast[c.a] = (uint32_t)c.b; break;
-        case C_FIRE: spawn_soft = c.b; spawn(c.a); spawn_soft = 0; break;
+        case C_FIRE: {
+            int on = 0, j;
+            for (j = 0; j < EN_NFA; j++)
+                on += fa[j].on;
+            while (deep && on >= 4) {    /* the processor is full: the tap still plays, the oldest effect makes room */
+                int old = -1;
+                for (j = 0; j < EN_NFA; j++)
+                    if (fa[j].on && (old < 0 || fa[j].born < fa[old].born))
+                        old = j;
+                fa[old].on = 0;
+                on--;
+            }
+            spawn_soft = c.b;
+            spawn(c.a);
+            spawn_soft = 0;
+            break;
+        }
         case C_PLAY: playing = c.a; break;
         case C_FREEZE: frozen = c.a; break;
         case C_OMEN: next_stratum(); ev_put(EV_OMEN, 0, 0, 0); break;
@@ -2945,10 +3015,17 @@ static void publish(void)
 
 void en_render(int32_t *lr, uint32_t n, uint32_t gain_q12)
 {
-    uint32_t i;
+    uint32_t i, t0 = plat_ticks24(), tw;
     int handed = 0;
     if (n > BLK)
         n = BLK;
+    r_t0 = t0;
+    r_dl = (uint32_t)((float)n * ((float)PLAT_TICKS_PER_US * 1e6f / EN_SR) * .7f);   /* the room after it: the mixing */
+    if (r_late) {
+        r_late = 0;
+        if (cpu_e < .95f)
+            cpu_e = .95f;                /* a voice was skipped: lighten now */
+    }
     commands();
     control();
     for (i = 0; i < n; i++) {
@@ -2964,7 +3041,9 @@ void en_render(int32_t *lr, uint32_t n, uint32_t gain_q12)
     {
         float *const o[4] = {bL, bR, bT, bV};
         bells_render(n, 0, 2, o, bm[0]);         /* the other two bells */
+        keyvox_render(n, kv_c2, NKV, o);         /* the keys' voices the second core has no room for (usually none) */
     }
+    tw = plat_ticks24();
     if (handed) {
         if (plat_cpu2_wait() != 0) {
             for (i = 0; i < n; i++)
@@ -2973,9 +3052,19 @@ void en_render(int32_t *lr, uint32_t n, uint32_t gain_q12)
         }
     } else
         core2_job(n);
+    tw = plat_ticks24() - tw;            /* how long core 1 waited for the second (or did its work) */
     fade_g = fade_g < fade_to ? fm_minf(fade_g + fade_step, fade_to) : fm_maxf(fade_g - fade_step, fade_to);
     space(lr, n, gain_q12);
     publish();
+    {   /* the watchman's reading: this block's time against the time it had, quick to rise, slow to settle */
+        uint32_t now = plat_ticks24(), sp = now - t0;
+        float ld = (float)sp / ((float)n * ((float)PLAT_TICKS_PER_US * 1e6f / EN_SR));
+        if (ld > 2.0f)
+            ld = 2.0f;                   /* a stall elsewhere (or the clock's wrap) counts once, not forever */
+        cpu_e += (ld - cpu_e) * (ld > cpu_e ? .08f : .01f);
+        wait_tk += handed ? tw : 0;
+        span_tk += sp;
+    }
 }
 
 void en_init(void)
